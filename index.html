@@ -401,6 +401,106 @@
             font-size: 0.9rem;
         }
 
+        /* Custom Notification System */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 300px;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background-color: #4CAF50;
+        }
+
+        .notification.error {
+            background-color: #F44336;
+        }
+
+        .notification.warning {
+            background-color: #FF9800;
+        }
+
+        .notification.info {
+            background-color: #2196F3;
+        }
+
+        .notification i {
+            font-size: 1.2rem;
+        }
+
+        .notification-close {
+            margin-left: auto;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .confirmation-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .confirmation-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .confirmation-buttons button {
+            padding: 8px 16px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .confirmation-buttons .confirm-btn {
+            background: var(--primary);
+            color: white;
+        }
+
+        .confirmation-buttons .cancel-btn {
+            background: var(--gray);
+            color: white;
+        }
+
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -583,6 +683,84 @@
     </div>
 
     <script>
+        // Notification System
+        function showNotification(message, type = 'info', duration = 3000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas ${getNotificationIcon(type)}"></i>
+                <span>${message}</span>
+                <button class="notification-close">&times;</button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            // Close button
+            notification.querySelector('.notification-close').addEventListener('click', () => {
+                closeNotification(notification);
+            });
+            
+            // Auto-close if duration is set
+            if (duration > 0) {
+                setTimeout(() => {
+                    closeNotification(notification);
+                }, duration);
+            }
+            
+            return notification;
+        }
+
+        function closeNotification(notification) {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }
+
+        function getNotificationIcon(type) {
+            const icons = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-circle',
+                'warning': 'fa-exclamation-triangle',
+                'info': 'fa-info-circle'
+            };
+            return icons[type] || 'fa-info-circle';
+        }
+
+        // Confirmation Dialog
+        function showConfirmation(message) {
+            return new Promise((resolve) => {
+                const dialog = document.createElement('div');
+                dialog.className = 'confirmation-dialog';
+                dialog.innerHTML = `
+                    <div class="confirmation-content">
+                        <p>${message}</p>
+                        <div class="confirmation-buttons">
+                            <button class="cancel-btn">Cancel</button>
+                            <button class="confirm-btn">Confirm</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(dialog);
+                
+                dialog.querySelector('.cancel-btn').addEventListener('click', () => {
+                    dialog.remove();
+                    resolve(false);
+                });
+                
+                dialog.querySelector('.confirm-btn').addEventListener('click', () => {
+                    dialog.remove();
+                    resolve(true);
+                });
+            });
+        }
+
         // PIN Protection System
         const CORRECT_PIN = "0909"; // Set your 4-digit PIN here
         const pinProtection = document.getElementById('pin-protection');
@@ -721,14 +899,16 @@
                 this.updateUI();
             }
             
-            deleteTransaction(id) {
+            async deleteTransaction(id) {
                 const transaction = this.transactions.find(t => t.id === id);
                 if (transaction) {
-                    const confirmMessage = `Are you sure you want to delete this ${transaction.type} transaction?`;
-                    if (confirm(confirmMessage)) {
+                    const message = `Are you sure you want to delete this ${transaction.type} transaction?`;
+                    const confirmed = await showConfirmation(message);
+                    if (confirmed) {
                         this.transactions = this.transactions.filter(t => t.id !== id);
                         this.saveTransactions();
                         this.updateUI();
+                        showNotification('Transaction deleted successfully!', 'success');
                     }
                 }
             }
@@ -918,7 +1098,7 @@
             a.download = 'transactions.csv';
             a.click();
             
-            alert('Data exported successfully!');
+            showNotification('Data exported successfully!', 'success');
         }
 
         // Event Listeners
@@ -949,7 +1129,7 @@
             const category = document.getElementById('category').value;
             
             if (isNaN(amount) || amount <= 0) {
-                alert('Please enter a valid amount');
+                showNotification('Please enter a valid amount', 'error');
                 return;
             }
             
@@ -963,7 +1143,7 @@
             );
             
             financeTracker.addTransaction(transaction);
-            alert('Transaction added successfully!');
+            showNotification('Transaction added successfully!', 'success');
             form.reset();
             document.getElementById('date').valueAsDate = new Date();
             transactionFormModal.style.display = 'none';
@@ -985,4 +1165,3 @@
     </script>
 </body>
 </html>
-
